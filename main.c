@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 #define MAX(x, y) ((x > y) ? x : y)
 
 const int stringSize = 30;
@@ -19,12 +20,13 @@ int valueSet(nonogram_t nonogram, int x, int y);
 int fieldValidation(nonogram_t nonogram, int x, int y);
 void outputField(nonogram_t nonogram);
 void freeNonogram(nonogram_t nonogram);
+static void *outputProcessOfSolving(void *vptr_args);
 
 int main(int argc, char *argv[])
 {
     nonogram_t nonogram;
     nonogram = fNonogramInit();
-    nonogram = solvingNonogram(nonogram);
+    solvingNonogram(nonogram);
     outputField(nonogram);
     freeNonogram(nonogram);
     return 0;
@@ -86,12 +88,26 @@ nonogram_t fNonogramInit()
 
 nonogram_t solvingNonogram(nonogram_t nonogram)
 {
+    pthread_t outputThread;
+    pthread_create(&outputThread, NULL, outputProcessOfSolving, (void *) &nonogram);
+    
     if (valueSet(nonogram, 0, 0)) {
         printf("No solution.\n");
         outputField(nonogram);
         exit(1);
     }
     return nonogram;
+}
+
+static void *outputProcessOfSolving(void *vptr_args)
+{
+    nonogram_t *nonogram;
+    nonogram = vptr_args;
+    while (1) {
+        outputField(*nonogram);
+        usleep(50000);
+    }
+    return NULL;
 }
 
 int valueSet(nonogram_t nonogram, int x, int y)
@@ -215,6 +231,7 @@ int fieldValidation(nonogram_t nonogram, int x, int y)
 
 void outputField(nonogram_t nonogram)
 {
+    system("clear");
     int i, j, k;
     for (i = 0; i < nonogram.sizeOfLine; i++) {
         for (k = 0; k < nonogram.sizeOfLine; k++) {

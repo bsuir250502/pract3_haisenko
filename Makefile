@@ -1,5 +1,5 @@
 OBJ = main.o
-CFLAGS = -Wall -std=c99
+CFLAGS = -Wall -std=c99 -lpthread
 
 all: bin
 
