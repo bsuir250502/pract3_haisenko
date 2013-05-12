@@ -1,5 +1,5 @@
-OBJ = main.o
-CFLAGS = -Wall -std=c99 -lpthread
+OBJ = main.o nonogram.o
+CFLAGS = -Wall -std=c99 -lpthread `pkg-config --cflags --libs cairo gtk+-3.0`
 
 all: bin
 
