@@ -33,9 +33,9 @@ nonogram_t fNonogramInit()
     for (i = 0; i < nonogram.sizeX; i++) {
         nonogram.valuesY[i] = (int *) calloc(nonogram.sizeOfLine, sizeof(int));
     }
-    nonogram.field = (int **) calloc(nonogram.sizeY, sizeof(int *));
+    nonogram.field = (struct cells_t **) calloc(nonogram.sizeY, sizeof(struct cells_t *));
     for (i = 0; i < nonogram.sizeY; i++) {
-        nonogram.field[i] = (int *) calloc(nonogram.sizeX, sizeof(int));
+        nonogram.field[i] = (struct cells_t *) calloc(nonogram.sizeX, sizeof(struct cells_t));
     }
 
     for (i = 0; i < nonogram.sizeX; i++) {
@@ -58,14 +58,15 @@ nonogram_t fNonogramInit()
 
 nonogram_t solvingNonogram(nonogram_t nonogram)
 {
-    pthread_t outputThread;
-    pthread_create(&outputThread, NULL, outputProcessOfSolving, (void *) &nonogram);
-    
+    //pthread_t outputThread;
+    //pthread_create(&outputThread, NULL, outputProcessOfSolving, (void *) &nonogram);
+
+    //previewValues(nonogram);
     if (valueSet(nonogram, 0, 0)) {
         printf("No solution.\n");
-        outputField(nonogram);
-        exit(1);
     }
+    //outputField(nonogram);
+    //pthread_cancel(outputThread);
     return nonogram;
 }
 
@@ -75,9 +76,44 @@ static void *outputProcessOfSolving(void *vptr_args)
     nonogram = vptr_args;
     while (1) {
         outputField(*nonogram);
-        usleep(50000);
+        usleep(40000);
     }
     return NULL;
+}
+
+int previewValues(nonogram_t nonogram) 
+{
+    int i, j, k, isAnyChanges = 0;
+
+    /* checking digits more than half size */
+    for (i = 0; i < nonogram.sizeX; i++) {
+        for (j = 0; nonogram.valuesY[i][j] && j < nonogram.sizeOfLine; j++) {
+            //outputField(nonogram);
+            for (k = nonogram.valuesY[i][j] - 1; k > nonogram.sizeY - nonogram.valuesY[i][j]; k--) {
+                nonogram.field[k][i].cell = 1;
+                nonogram.field[k][i].isDefinitely = 1;
+                isAnyChanges = 1;
+            }
+        }
+    }
+
+    for (i = 0; i < nonogram.sizeY; i++) {
+        for (j = 0; nonogram.valuesX[i][j] && j < nonogram.sizeOfLine; j++) {
+            //outputField(nonogram);
+            for (k = nonogram.sizeX - nonogram.valuesX[i][j]; k < (nonogram.valuesX[i][j] - 1); k++) {
+                nonogram.field[i][k].cell = 1;
+                nonogram.field[i][k].isDefinitely = 1;
+                isAnyChanges = 1;
+            }
+        }
+    }
+
+    if(isAnyChanges) {
+        return 1;
+    } else {
+        return 0;
+    }
+    return 1;
 }
 
 int valueSet(nonogram_t nonogram, int x, int y)
@@ -86,19 +122,27 @@ int valueSet(nonogram_t nonogram, int x, int y)
     ((x + 1) == nonogram.sizeX) ? (nextX = 0, nextY = y + 1) : (nextX = x + 1, nextY = y);  //need checking X or Y?
     (nextY == nonogram.sizeY) ? (isLastCell = 1) : (isLastCell = 0);
 
-    nonogram.field[y][x] = 1;
+    if (nonogram.field[y][x].isDefinitely) {
+        if (isLastCell) {
+            return 0;
+        } else {
+            valueSet(nonogram, nextX, nextY);
+        }
+    }
+
+    nonogram.field[y][x].cell = 1;
     if (fieldValidation(nonogram, x, y)) {
-        nonogram.field[y][x] = 0;
+        nonogram.field[y][x].cell = 0;
         if (fieldValidation(nonogram, x, y)) {
             return 1;
         }
     }
 
     if (!isLastCell && valueSet(nonogram, nextX, nextY)) {
-        if (!nonogram.field[y][x]) {
+        if (!nonogram.field[y][x].cell) {
             return 1;
         }
-        nonogram.field[y][x] = 0;
+        nonogram.field[y][x].cell = 0;
         if (valueSet(nonogram, nextX, nextY)) {
             return 1;
         } else {
@@ -116,19 +160,19 @@ int fieldValidation(nonogram_t nonogram, int x, int y)
 
     /* checking digits more than half */
     for (i = 0; nonogram.valuesY[x][i] && i < nonogram.sizeOfLine; i++) {
-        if ((y > nonogram.sizeY - nonogram.valuesY[x][i]) && (y < nonogram.valuesY[x][i]) && !nonogram.field[y][x]) {
+        if ((y > nonogram.sizeY - nonogram.valuesY[x][i]) && (y < nonogram.valuesY[x][i]) && !nonogram.field[y][x].cell) {
             return 1;
         }
     }
     for (i = 0; nonogram.valuesX[y][i] && i < nonogram.sizeOfLine; i++) {
-        if ((x > nonogram.sizeX - nonogram.valuesX[y][i]) && (x < nonogram.valuesX[y][i]) && !nonogram.field[y][x]) {
+        if ((x > nonogram.sizeX - nonogram.valuesX[y][i]) && (x < nonogram.valuesX[y][i]) && !nonogram.field[y][x].cell) {
             return 1;
         }
     }
 
     /* main validation loop for y */
     for (i = 0, j = 0, sum = 0, usedValues = 0; i <= nonogram.sizeY; i++) {
-        if ((i < nonogram.sizeY) && nonogram.field[i][x]) {  //don't change
+        if ((i < nonogram.sizeY) && nonogram.field[i][x].cell) {  //don't change
             sum++;
         } else {
             if (y > lastY && usedValues != j) {
@@ -163,7 +207,7 @@ int fieldValidation(nonogram_t nonogram, int x, int y)
 
     /* main validation loop for i */
     for (i = 0, j = 0, sum = 0, usedValues = 0; i <= nonogram.sizeX; i++) {
-        if ((i < nonogram.sizeX) && nonogram.field[y][i]) {  //don't change
+        if ((i < nonogram.sizeX) && nonogram.field[y][i].cell) {  //don't change
             sum++;
         } else {
             if (x > lastX && usedValues != j) {
@@ -235,7 +279,7 @@ void outputField(nonogram_t nonogram)
         }
         printf("|");
         for (j = 0; j < nonogram.sizeX; j++) {
-            if (nonogram.field[i][j]) {
+            if (nonogram.field[i][j].cell) {
                 printf("■ ");
             } else {
                 printf("  ");
